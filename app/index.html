@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Neon Coast — turn a photo and a caption into GTA-style poster cover art, offline in your browser.">
+<title>Neon Coast — GTA-style Cover Maker</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="app">
+  <section class="controls" aria-label="Cover controls">
+    <h1>Neon Coast</h1>
+    <p class="tagline">Turn a photo and a caption into poster-style cover art. 100% offline — your photos never leave this machine.</p>
+
+    <div class="group">
+      <span class="group-label">1 · Photos</span>
+      <label class="file-label">Choose up to 3 photos
+        <input id="photos" type="file" accept="image/*" multiple>
+      </label>
+      <div class="row">
+        <button id="useSamples" type="button">Use sample photos</button>
+        <button id="clearPhotos" type="button" class="ghost">Clear</button>
+      </div>
+      <label class="check"><input id="onePhoto" type="checkbox"> One photo fills every panel</label>
+    </div>
+
+    <div class="group">
+      <span class="group-label">2 · Layout</span>
+      <div class="row wrap" id="layoutRow"></div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">3 · Colour grade</span>
+      <div class="row wrap" id="gradeRow"></div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">4 · Caption</span>
+      <label>Title <input id="title" type="text" maxlength="32" value="Neon Shore"></label>
+      <label>Subtitle <input id="subtitle" type="text" maxlength="48" value="one last ride down the coast"></label>
+    </div>
+
+    <div class="group">
+      <span class="group-label">5 · Crop the selected panel</span>
+      <p id="panelLabel" class="hint" role="status">Panel 1 of 4</p>
+      <div class="row">
+        <button id="prevPanel" type="button" class="ghost">← Prev panel</button>
+        <button id="nextPanel" type="button" class="ghost">Next panel →</button>
+      </div>
+      <label>Zoom <input id="zoom" type="range" min="1" max="2.5" step="0.05" value="1"></label>
+      <p class="hint">Drag the photo inside a panel to move it. Click a panel to select it.</p>
+    </div>
+
+    <div class="group">
+      <span class="group-label">6 · Post size</span>
+      <div class="row wrap" id="sizeRow"></div>
+    </div>
+
+    <button id="export" type="button" class="export">Export PNG</button>
+    <p id="status" role="status"></p>
+    <p class="fine">Original art and lettering, made for this app. Not affiliated with Rockstar Games.</p>
+  </section>
+  <section class="stage" aria-label="Cover preview">
+    <canvas id="preview" width="1080" height="1080" aria-label="The cover preview"></canvas>
+  </section>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
