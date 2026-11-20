@@ -1,11 +1,14 @@
-// Neon Coast editor v2: pick photos, choose a layout, grade and post size,
-// name the cast, crop and position each panel, edit the caption, export the
-// cover as a PNG — one size, or all three at once. Photos are read on this
-// machine only (FileReader / object URLs) and never uploaded. A `?shot=`
-// query sets up a fixed scene for a screenshot instead (see ./shots.js):
-// ?shot=editor shows the editor with a sample photo loaded, ?shot=cover
-// shows the exported cover alone, full frame.
-import { drawCover, layoutPanels, defaultPanels, topBiasPanels, LAYOUTS, GRADES, SIZES } from './cover.js';
+// Neon Coast editor v3: pick photos, choose a layout, grade and post size,
+// name the cast, crop and position each panel, edit the caption, stamp the
+// seal and the critic strip, export the cover as a PNG — one size, or all
+// three at once. Photos are read on this machine only (FileReader / object
+// URLs) and never uploaded. A `?shot=` query sets up a fixed scene for a
+// screenshot instead (see ./shots.js): ?shot=editor shows the editor with a
+// sample photo loaded, ?shot=cover shows the exported cover alone, full
+// frame. v3 adds the Poster extras group: the Vice City seal, the review
+// strip with an editable critic quote, the sky glow behind the title, and
+// Auto-fill, which deals the loaded photos across the panels.
+import { drawCover, layoutPanels, defaultPanels, dealPanels, topBiasPanels, LAYOUTS, GRADES, SIZES } from './cover.js';
 import { runShot } from './shots.js';
 
 const preview = document.getElementById('preview');
@@ -17,12 +20,22 @@ const photoInput = document.getElementById('photos');
 const onePhotoToggle = document.getElementById('onePhoto');
 const panelLabel = document.getElementById('panelLabel');
 const inkToggle = document.getElementById('ink');
+const sealToggle = document.getElementById('seal');
+const reviewsToggle = document.getElementById('reviews');
+const reviewInput = document.getElementById('review');
+const glowToggle = document.getElementById('glow');
 
 const DEFAULT_CAST = [
   { name: 'MARLOWE', role: 'THE DRIVER' },
   { name: 'VEGA', role: 'THE LOOKOUT' },
   { name: 'CASS', role: 'THE FIXER' },
 ];
+
+// The critic strip's default quote. Kept as a constant because setState
+// receives `review: undefined` from a shot scene that sets no &review=
+// param — Object.assign would clobber the state's quote with undefined, and
+// the strip would silently vanish from every screenshot.
+const DEFAULT_REVIEW = "'A neon-soaked masterpiece' — VICE GAMER";
 
 const state = {
   photos: [],
@@ -35,6 +48,10 @@ const state = {
   selectedPanel: 0,
   cast: DEFAULT_CAST.map((c) => ({ ...c })),
   ink: false,
+  seal: true,
+  reviews: true,
+  review: DEFAULT_REVIEW,
+  glow: true,
 };
 
 function sizeOf() {
@@ -97,6 +114,10 @@ function setSize(size) {
 function syncPanelControls() {
   const panel = state.panels[state.selectedPanel];
   if (panel) zoomInput.value = String(panel.zoom);
+  if (sealToggle) sealToggle.checked = state.seal;
+  if (reviewsToggle) reviewsToggle.checked = state.reviews;
+  if (reviewInput) reviewInput.value = state.review;
+  if (glowToggle) glowToggle.checked = state.glow;
   document.querySelectorAll('[data-layout]').forEach((b) => {
     b.classList.toggle('active', b.dataset.layout === state.layout);
   });
@@ -178,6 +199,39 @@ onePhotoToggle.addEventListener('change', () => afterPhotosChanged(
 inkToggle.addEventListener('change', () => {
   state.ink = inkToggle.checked;
   status.textContent = state.ink ? 'Poster Ink on — flat print colours.' : 'Poster Ink off.';
+  redraw();
+});
+
+/** Poster extras (v3): the seal, the critic strip, the sky glow, and
+ * Auto-fill, which deals the loaded photos across the panels. */
+sealToggle.addEventListener('change', () => {
+  state.seal = sealToggle.checked;
+  status.textContent = state.seal ? 'Seal stamped on the cover.' : 'Seal off.';
+  redraw();
+});
+reviewsToggle.addEventListener('change', () => {
+  state.reviews = reviewsToggle.checked;
+  status.textContent = state.reviews ? 'Review strip on.' : 'Review strip off.';
+  redraw();
+});
+reviewInput.addEventListener('input', () => {
+  state.review = reviewInput.value;
+  redraw();
+});
+glowToggle.addEventListener('change', () => {
+  state.glow = glowToggle.checked;
+  status.textContent = state.glow ? 'Sky glow on — the title is lit from the sunset.' : 'Sky glow off.';
+  redraw();
+});
+document.getElementById('autoFill').addEventListener('click', () => {
+  if (state.photos.length === 0) {
+    status.textContent = 'Load a photo first — Auto-fill deals the photos you have.';
+    return;
+  }
+  state.panels = dealPanels(state.layout, state.photos.length);
+  topBiasPanels(state);
+  status.textContent = `Auto-filled ${state.panels.length} panels from ${state.photos.length} photo${state.photos.length === 1 ? '' : 's'}.`;
+  syncPanelControls();
   redraw();
 });
 
@@ -354,10 +408,19 @@ if (shot) {
       state.cast = (next.cast && next.cast.length ? next.cast : DEFAULT_CAST)
         .map((c) => ({ ...c }));
       state.ink = Boolean(next.ink);
+      state.seal = next.seal !== undefined ? Boolean(next.seal) : true;
+      state.reviews = next.reviews !== undefined ? Boolean(next.reviews) : true;
+      state.review = typeof next.review === 'string' && next.review.trim()
+        ? next.review : DEFAULT_REVIEW;
+      state.glow = next.glow !== undefined ? Boolean(next.glow) : true;
       topBiasPanels(state);
       titleInput.value = state.title;
       subtitleInput.value = state.subtitle;
       if (inkToggle) inkToggle.checked = state.ink;
+      if (sealToggle) sealToggle.checked = state.seal;
+      if (reviewsToggle) reviewsToggle.checked = state.reviews;
+      if (reviewInput) reviewInput.value = state.review;
+      if (glowToggle) glowToggle.checked = state.glow;
       syncCastInputs();
       syncPanelControls();
       redraw();

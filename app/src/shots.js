@@ -4,7 +4,8 @@
 //   ?shot=cover&photo=<sample>&caption=<text>&layout=<key>&grade=<key>&size=<key>
 //     shows the exported cover alone, full frame, at the export size.
 //   Extra knobs: &cast=NAME|ROLE,NAME|ROLE sets the cast tags,
-//   &ink=1 turns Poster Ink on.
+//   &ink=1 turns Poster Ink on, &seal=0 / &reviews=0 / &glow=0 switch the
+//   v3 poster extras off, &review=<quote> sets the critic strip's quote.
 // window.__shotReady is set once the scene has painted, so the screenshot
 // script knows the frame is final. The cover scene is the app's own drawing
 // at the export size — the same pixels the Export button downloads — with the
@@ -19,6 +20,10 @@ export async function runShot(shot, query, app) {
   const grade = query.get('grade') ?? 'sunset';
   const size = query.get('size') ?? 'wide';
   const ink = query.get('ink') === '1';
+  const seal = query.get('seal') !== '0';
+  const reviews = query.get('reviews') !== '0';
+  const review = query.get('review') ?? undefined;
+  const glow = query.get('glow') !== '0';
   const castParam = query.get('cast');
   const cast = castParam
     ? castParam.split(',').map((pair) => {
@@ -43,6 +48,12 @@ export async function runShot(shot, query, app) {
     selectedPanel: 0,
     cast,
     ink,
+    seal,
+    reviews,
+    // Only pass the quote when the scene sets one: an undefined review
+    // would overwrite the editor's default quote in setState.
+    ...(review ? { review } : {}),
+    glow,
   });
   // Let the cover paint, then signal readiness on the next two frames.
   requestAnimationFrame(() => requestAnimationFrame(() => {

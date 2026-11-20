@@ -37,6 +37,38 @@ function pngSize(buf) {
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
+/** Reads a JPEG's dimensions from its SOF0/SOF2 marker. */
+function jpegSize(buf) {
+  if (buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const marker = buf[i + 1];
+    if (marker === 0xc0 || marker === 0xc2) {
+      return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+    }
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
+}
+
+/** The sealed gate's screenshot caps (reference/gate.json): at most 256 KiB,
+ * long side at most 1280 px, short side at least 480 px. */
+function gateCheckShots(dir) {
+  const problems = [];
+  for (const f of readdirSync(dir).filter((x) => !x.startsWith('.')).sort()) {
+    const buf = readFileSync(join(dir, f));
+    const dims = jpegSize(buf) ?? pngSize(buf);
+    const long = dims ? Math.max(dims.w, dims.h) : -1;
+    const short = dims ? Math.min(dims.w, dims.h) : -1;
+    const ok = buf.length <= 262144 && long <= 1280 && long > 0 && short >= 480;
+    console.log(`gate-check ${f}: ${buf.length} bytes, ${dims ? `${dims.w}x${dims.h}` : 'unknown size'} — ${ok ? 'OK' : 'FAIL'}`);
+    if (!ok) problems.push(`${f}: ${buf.length} bytes ${dims ? `${dims.w}x${dims.h}` : ''}`);
+  }
+  return problems;
+}
+
 async function main() {
   const errors = [];
   // WebGL domain policy for the local Chromium build (see the chrome spawn below).
@@ -116,6 +148,7 @@ async function main() {
       writeFileSync(join(outDir, shot.name), Buffer.from(data, 'base64'));
       console.log(`shot ${shot.name} (${shot.w}x${shot.h})`);
     }
+    errors.push(...gateCheckShots(outDir));
 
     // ---- Play-test: real user flow in the editor, no ?shot= scene. ----
     await psend('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -170,6 +203,30 @@ async function main() {
     })()`);
     console.log('play-test cast edited to:', castEdited);
     if (castEdited !== 'RICO') errors.push('cast edit failed');
+    // ---- v3 play-test: mosaic layout, seal toggle, auto-fill. ----
+    const v3 = await evalJs(`(() => {
+      document.querySelector('[data-layout="mosaic"]').click();
+      const mosaicOn = document.querySelector('[data-layout="mosaic"]').classList.contains('active');
+      const seal = document.getElementById('seal');
+      seal.click();
+      const sealOff = !seal.checked;
+      seal.click();
+      const sealOn = seal.checked;
+      document.getElementById('autoFill').click();
+      const label = document.getElementById('panelLabel').textContent;
+      return { mosaicOn, sealOff, sealOn, label };
+    })()`);
+    console.log('play-test v3 mosaic/seal/auto-fill:', JSON.stringify(v3));
+    if (!v3.mosaicOn || !v3.sealOff || !v3.sealOn) errors.push('v3 mosaic/seal controls failed');
+    if (!/Panel 1 of 7/.test(v3.label)) errors.push(`auto-fill panel count wrong: ${v3.label}`);
+    const quoteEdited = await evalJs(`(() => {
+      const q = document.getElementById('review');
+      q.value = "'Pure Vice City magic' — NEON DAILY";
+      q.dispatchEvent(new Event('input', { bubbles: true }));
+      return document.getElementById('review').value;
+    })()`);
+    console.log('play-test review quote edited to:', quoteEdited);
+    if (quoteEdited !== "'Pure Vice City magic' — NEON DAILY") errors.push('review quote edit failed');
     await evalJs(`document.getElementById('exportAll').click()`);
     await sleep(3000);
     for (const [w, h] of [[1080, 1080], [1080, 1350], [1920, 1080]]) {

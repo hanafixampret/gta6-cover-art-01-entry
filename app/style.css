@@ -35,6 +35,12 @@ button:hover { border-color: var(--accent); }
 button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 button.active { background: linear-gradient(90deg, #ff9a3d, #ff2e88); border-color: transparent; color: #fff; }
 button.ghost { background: transparent; font-weight: 600; }
+button.mini {
+  background: transparent; border-color: var(--accent-2); color: var(--accent-2);
+  font-weight: 700;
+}
+button.mini:hover { background: rgba(255, 154, 61, 0.12); border-color: var(--accent-2); }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 button.export {
   padding: 13px; font-size: 17px; border: 0; color: #fff;
   background: linear-gradient(90deg, #ff9a3d, #ff2e88);

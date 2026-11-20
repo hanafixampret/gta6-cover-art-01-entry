@@ -1,18 +1,24 @@
-// Neon Coast cover engine v2: draws a multi-panel GTA-poster-style cover on a
+// Neon Coast cover engine v3: draws a multi-panel GTA-poster-style cover on a
 // 2D canvas from any photos, a title and a subtitle. Everything drawn here is
 // original vector art (panels, gutters, synthwave sun, palm silhouettes,
 // halftone dots, chrome gradient lettering) — no Rockstar logo, artwork or
 // font. In v2 the caption sits ON the art (no reserved title band), the title
 // is striped retro-chrome with a 3D extrude, and the engine adds slanted and
 // pop-out layouts, a face-aware crop, cast tags, a billing block and an
-// optional Poster Ink finish.
+// optional Poster Ink finish. v3 adds the poster's finishing furniture the
+// top entries carry: a seven-panel mosaic layout, a circular Vice City seal
+// stamped on the cover, a critic review strip above the title, a sky glow
+// behind the lettering, and an auto-fill that deals the photos across the
+// panels.
 //
 // A cover state is { photos, layout, grade, title, subtitle, size, panels,
-// cast, ink }, where panels[i] = { photo, zoom, dx, dy } crops and positions
-// the photo in panel i (dx/dy are fractions of the panel size, zoom a
-// multiplier on the cover-fit scale), cast[i] = { name, role } is the role
-// tag shown on panel i, and ink posterizes the photos. drawCover renders
-// that state at the canvas's own size.
+// cast, ink, seal, reviews, review, glow }, where panels[i] = { photo, zoom,
+// dx, dy } crops and positions the photo in panel i (dx/dy are fractions of
+// the panel size, zoom a multiplier on the cover-fit scale), cast[i] =
+// { name, role } is the role tag shown on panel i, ink posterizes the
+// photos, seal stamps the circular seal, reviews shows the critic strip with
+// the text in `review`, and glow lights the sky behind the title.
+// drawCover renders that state at the canvas's own size.
 
 export const LAYOUTS = {
   hero: 'Hero + three',
@@ -23,6 +29,7 @@ export const LAYOUTS = {
   popout: 'Pop-out hero',
   triptych: 'Triptych',
   vista: 'Vista hero',
+  mosaic: 'Seven-panel mosaic',
 };
 
 export const GRADES = {
@@ -145,6 +152,26 @@ export function layoutPanels(layout, w, h) {
       { x: 2 * (cw + g), y: heroH + g, w: cw, h: rowH },
     ];
   }
+  if (layout === 'mosaic') {
+    // Seven panels, the poster's busiest grid: a hero top-left, four small
+    // tiles top-right in a 2x2 block, and two wide panels along the foot —
+    // the layout the top entries use to show the most of a story at once.
+    const heroW = w * 0.50;
+    const tileW = (w - heroW - 2 * g) / 2;
+    const tileH = (h * 0.60 - g) / 2;
+    const footY = h * 0.60 + g;
+    const footH = h - footY;
+    const footW = (w - g) / 2;
+    return [
+      { x: 0, y: 0, w: heroW, h: h * 0.60 },
+      { x: heroW + g, y: 0, w: tileW, h: tileH },
+      { x: heroW + g + tileW + g, y: 0, w: tileW, h: tileH },
+      { x: heroW + g, y: tileH + g, w: tileW, h: tileH },
+      { x: heroW + g + tileW + g, y: tileH + g, w: tileW, h: tileH },
+      { x: 0, y: footY, w: footW, h: footH },
+      { x: footW + g, y: footY, w: footW, h: footH },
+    ];
+  }
   if (layout === 'slanted') {
     // Hero left, three stacked right, the divider between them a diagonal
     // that leans right at the top — the poster reads as one slanted sheet.
@@ -188,12 +215,33 @@ export function defaultPanels(layout, photoCount) {
   return out;
 }
 
+/** Auto-fill: deals the photos across the panels so no two neighbours show
+ * the same photo — the hero keeps photo 0, the rest alternate in turn —
+ * so one click fills a seven-panel mosaic without a repeated tile. */
+export function dealPanels(layout, photoCount) {
+  const n = layoutPanels(layout, 100, 100).length;
+  const out = [];
+  if (photoCount <= 1) return defaultPanels(layout, photoCount);
+  for (let i = 0; i < n; i++) {
+    // Step by 2 through the photo list (modulo) keeps neighbours apart
+    // even when there are only two photos to deal.
+    const photo = i === 0 ? 0 : (2 * i - 1) % photoCount;
+    out.push({ photo, zoom: 1, dx: 0, dy: 0 });
+  }
+  return out;
+}
+
 const faceCache = new WeakMap();
 /** Finds where the faces sit in a photo: downsamples it to a 64px grid,
  * scores each cell for skin tone (the classic RGB skin rule), and returns
- * the y-centroid (0..1) of the densest skin cluster in the upper 70% of the
- * frame — or null when no face-like cluster is found. Cached per photo, so
- * the scan runs once per load. */
+ * the face's y-centre (0..1) — or null when no face-like cluster is found.
+ * Cached per photo, so the scan runs once per load.
+ *
+ * The anchor is the midpoint of the skin cluster's top and its centroid:
+ * a plain centroid is dragged down by the neck and bare arms, which puts
+ * the eyes above short panels (the mosaic's foot panels showed a chin and
+ * no face). The top of the cluster is the top of the head; halfway between
+ * it and the centroid lands on the face itself. */
 export function faceCentreY(photo) {
   if (faceCache.has(photo)) return faceCache.get(photo);
   let result = null;
@@ -205,9 +253,10 @@ export function faceCentreY(photo) {
     const x = c.getContext('2d');
     x.drawImage(photo, 0, 0, s, s);
     const d = x.getImageData(0, 0, s, s).data;
+    const rows = new Array(Math.floor(s * 0.7)).fill(0);
     let sumY = 0;
     let count = 0;
-    for (let py = 0; py < Math.floor(s * 0.7); py++) {
+    for (let py = 0; py < rows.length; py++) {
       for (let px = 0; px < s; px++) {
         const i = (py * s + px) * 4;
         const r = d[i];
@@ -216,12 +265,25 @@ export function faceCentreY(photo) {
         const skin = r > 95 && g > 40 && b > 20 && r > g + 12 && r > b + 12
           && (r - g) > 12 && (r - g) < 95;
         if (skin) {
+          rows[py]++;
           sumY += py;
           count++;
         }
       }
     }
-    if (count >= 24) result = (sumY / count) / s;
+    if (count >= 24) {
+      const centroid = (sumY / count) / s;
+      // First row where a 3-row window holds real skin: the top of the head.
+      const need = Math.max(8, count * 0.02);
+      let top = 0;
+      for (let y = 0; y + 2 < rows.length; y++) {
+        if (rows[y] + rows[y + 1] + rows[y + 2] >= need) {
+          top = y;
+          break;
+        }
+      }
+      result = (top / s + centroid) / 2;
+    }
   } catch {
     result = null;
   }
@@ -594,6 +656,105 @@ export function drawPopoutSticker(ctx, state, recipe) {
   ctx.restore();
 }
 
+/** A sky glow: a soft radial wash in the grade's title colour behind the
+ * lettering, so the chrome title reads lit from within the sunset. */
+export function drawSkyGlow(ctx, w, h, recipe) {
+  const cx = w / 2;
+  const cy = h * 0.78;
+  const r = Math.max(w, h) * 0.42;
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  glow.addColorStop(0, hexA(recipe.title[1], 0.34));
+  glow.addColorStop(0.55, hexA(recipe.title[2], 0.14));
+  glow.addColorStop(1, hexA(recipe.title[2], 0));
+  ctx.save();
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, h * 0.5, w, h * 0.5);
+  ctx.restore();
+}
+
+/** Turns a #rrggbb colour into an rgba() string at the given alpha. */
+export function hexA(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/** The circular seal: a double ring with the place name set on the circle
+ * and a star in the middle, stamped at a slight tilt over the cover's foot
+ * — the "approved" stamp the top entries carry. The text is invented, never
+ * a game mark. */
+export function drawSeal(ctx, cx, cy, r, recipe) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-0.21);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.lineWidth = Math.max(1.5, r * 0.045);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1, r * 0.025);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+  ctx.stroke();
+  // The ring text, one letter at a time around the circle.
+  const ringText = 'VICE CITY • NEON COAST • EST. 2026 • ';
+  const fontSize = r * 0.185;
+  ctx.font = `800 ${fontSize}px ${TITLE_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const step = (Math.PI * 2) / ringText.length;
+  for (let i = 0; i < ringText.length; i++) {
+    const a = -Math.PI / 2 + i * step;
+    ctx.save();
+    ctx.rotate(a);
+    ctx.translate(0, -r * 0.91);
+    ctx.fillText(ringText[i], 0, 0);
+    ctx.restore();
+  }
+  // Five-point star in the middle.
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? r * 0.52 : r * 0.22;
+    const x = Math.cos(a) * rad;
+    const y = Math.sin(a) * rad;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = hexA(recipe.title[1], 0.95);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The review strip: five stars and one critic quote in small caps above the
+ * title, the poster line the top entries quote from their press. */
+export function drawReviewStrip(ctx, w, h, state, recipe) {
+  const quote = (state.review || '').trim();
+  if (!quote) return;
+  const y = h * 0.715;
+  const size = Math.max(11, h * 0.021);
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `800 ${size}px ${TITLE_FAMILY}`;
+  const stars = '★★★★★';
+  const starsW = ctx.measureText(stars).width;
+  ctx.font = `700 ${size}px ${TITLE_FAMILY}`;
+  const quoteW = ctx.measureText(quote.toUpperCase()).width;
+  const gap = size * 1.2;
+  const totalW = starsW + gap + quoteW;
+  let x = (w - totalW) / 2;
+  ctx.font = `800 ${size}px ${TITLE_FAMILY}`;
+  ctx.fillStyle = '#ffd76a';
+  ctx.textAlign = 'left';
+  ctx.fillText(stars, x, y);
+  x += starsW + gap;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.fillText(quote.toUpperCase(), x, y);
+  ctx.restore();
+}
+
 /** The caption, drawn over the art: a dark scrim rising from the foot, the
  * chrome title on it, the subtitle in script, a palm and a small sun at the
  * edges, the badge ribbon, and the billing block at the very foot. */
@@ -609,6 +770,11 @@ export function drawCaptionOverlay(ctx, w, h, state, recipe) {
   drawSun(ctx, w * 0.90, h * 0.665, h * 0.045, recipe.sun);
   drawPalm(ctx, w * 0.015, h - h * 0.004, h * 0.075, 'rgba(8, 2, 18, 0.9)');
   drawHalftone(ctx, { x: w * 0.64, y: h * 0.90, w: w * 0.34, h: h * 0.07 }, 'rgba(255, 255, 255, 0.14)');
+
+  // v3 furniture: the sky glow behind the lettering and the critic strip
+  // above the title, both switched by the editor's Poster extras.
+  if (state.glow) drawSkyGlow(ctx, w, h, recipe);
+  if (state.reviews) drawReviewStrip(ctx, w, h, state, recipe);
 
   const title = (state.title || '').trim().toUpperCase();
   if (title) {
@@ -652,6 +818,13 @@ export function drawCaptionOverlay(ctx, w, h, state, recipe) {
   ctx.restore();
 
   drawBillingBlock(ctx, w, h, state);
+
+  // The seal stamps the foot's right corner, clear of the subtitle and the
+  // billing line — drawn last so it sits on top of the scrim like a stamp.
+  if (state.seal) {
+    const r = Math.min(w, h) * 0.052;
+    drawSeal(ctx, w - r - w * 0.018, h - r - h * 0.028, r, recipe);
+  }
 }
 
 /** Draws the whole cover for `state` onto `canvas` at the canvas's own size. */

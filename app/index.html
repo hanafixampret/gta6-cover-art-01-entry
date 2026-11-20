@@ -60,7 +60,19 @@
     </div>
 
     <div class="group">
-      <span class="group-label">6 · Crop the selected panel</span>
+      <span class="group-label">6 · Poster extras</span>
+      <label class="check"><input id="seal" type="checkbox" checked> Vice City seal — stamped on the cover</label>
+      <label class="check"><input id="reviews" type="checkbox" checked> Review strip — stars + critic quote</label>
+      <label>Quote <input id="review" type="text" maxlength="64" value="'A neon-soaked masterpiece' — VICE GAMER"></label>
+      <label class="check"><input id="glow" type="checkbox" checked> Sky glow — light behind the title</label>
+      <div class="row">
+        <button id="autoFill" type="button" class="mini">Auto-fill panels</button>
+      </div>
+      <p class="hint">Auto-fill deals your photos across the panels so no two neighbours repeat.</p>
+    </div>
+
+    <div class="group">
+      <span class="group-label">7 · Crop the selected panel</span>
       <p id="panelLabel" class="hint" role="status">Panel 1 of 4</p>
       <div class="row">
         <button id="prevPanel" type="button" class="ghost">← Prev panel</button>
@@ -71,7 +83,7 @@
     </div>
 
     <div class="group">
-      <span class="group-label">7 · Post size</span>
+      <span class="group-label">8 · Post size</span>
       <div class="row wrap" id="sizeRow"></div>
     </div>
 

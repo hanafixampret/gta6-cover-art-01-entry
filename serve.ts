@@ -3,8 +3,10 @@
 // app/ on http://localhost:8080. `--port <n>` picks another port.
 // It sends the MIME types an offline web app needs, refuses any path outside
 // app/, and otherwise does nothing clever: a development convenience, not a
-// web server for the internet.
-import { createReadStream, statSync } from 'node:fs';
+// web server for the internet. One extra route, /__shots, lists the
+// screenshots' scenes from shots.json with their full URLs, so the maker can
+// open every shot scene in one click instead of retyping the queries.
+import { createReadStream, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +44,21 @@ const MIME: Record<string, string> = {
 
 createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://localhost');
+  if (url.pathname === '/__shots') {
+    let shots = [];
+    try {
+      shots = JSON.parse(readFileSync(join(root, '..', 'shots.json'), 'utf8'));
+    } catch {
+      shots = [];
+    }
+    const body = JSON.stringify(shots.map((s) => ({
+      name: s.name,
+      url: `http://localhost:${port}/index.html${s.query}`,
+    })), null, 2);
+    response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    response.end(body);
+    return;
+  }
   let pathname: string;
   try {
     pathname = decodeURIComponent(url.pathname);
@@ -72,4 +89,5 @@ createServer((request, response) => {
   createReadStream(file).pipe(response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`app/ is on http://localhost:${port}`);
+  console.log(`shot scenes: http://localhost:${port}/__shots`);
 });
