@@ -3,6 +3,9 @@
 // grader's output directory and writes /output/dossier.json with the vendored
 // make.fun library. The output directory is a mount point in the grader, so it
 // is only ever created (mkdirSync), never removed — rmSync would throw EBUSY.
+// The app it hands in is the v2 rebuild: chrome title over the art, pop-out
+// and slanted layouts, cast tags, billing block, face-aware crops, Poster Ink
+// and export-all-sizes — all drawn in code, offline, no game assets.
 //
 // Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts

@@ -33,6 +33,7 @@
     <div class="group">
       <span class="group-label">3 · Colour grade</span>
       <div class="row wrap" id="gradeRow"></div>
+      <label class="check"><input id="ink" type="checkbox"> Poster Ink — flat print colours</label>
     </div>
 
     <div class="group">
@@ -42,7 +43,24 @@
     </div>
 
     <div class="group">
-      <span class="group-label">5 · Crop the selected panel</span>
+      <span class="group-label">5 · Cast — role tags on the panels</span>
+      <div class="cast-row">
+        <input id="castName0" type="text" maxlength="16" value="MARLOWE" aria-label="Cast 1 name">
+        <input id="castRole0" type="text" maxlength="16" value="THE DRIVER" aria-label="Cast 1 role">
+      </div>
+      <div class="cast-row">
+        <input id="castName1" type="text" maxlength="16" value="VEGA" aria-label="Cast 2 name">
+        <input id="castRole1" type="text" maxlength="16" value="THE LOOKOUT" aria-label="Cast 2 role">
+      </div>
+      <div class="cast-row">
+        <input id="castName2" type="text" maxlength="16" value="CASS" aria-label="Cast 3 name">
+        <input id="castRole2" type="text" maxlength="16" value="THE FIXER" aria-label="Cast 3 role">
+      </div>
+      <p class="hint">Each pair is drawn as a tag on its panel, and the names feed the billing block at the foot of the cover.</p>
+    </div>
+
+    <div class="group">
+      <span class="group-label">6 · Crop the selected panel</span>
       <p id="panelLabel" class="hint" role="status">Panel 1 of 4</p>
       <div class="row">
         <button id="prevPanel" type="button" class="ghost">← Prev panel</button>
@@ -53,11 +71,12 @@
     </div>
 
     <div class="group">
-      <span class="group-label">6 · Post size</span>
+      <span class="group-label">7 · Post size</span>
       <div class="row wrap" id="sizeRow"></div>
     </div>
 
     <button id="export" type="button" class="export">Export PNG</button>
+    <button id="exportAll" type="button" class="export-all">Export all 3 sizes</button>
     <p id="status" role="status"></p>
     <p class="fine">Original art and lettering, made for this app. Not affiliated with Rockstar Games.</p>
   </section>

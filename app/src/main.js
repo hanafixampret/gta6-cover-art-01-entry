@@ -1,9 +1,10 @@
-// Neon Coast editor: pick photos, choose a layout, grade and post size, crop
-// and position each panel, edit the caption, export the cover as a PNG.
-// Photos are read on this machine only (FileReader / object URLs) and never
-// uploaded. A `?shot=` query sets up a fixed scene for a screenshot instead
-// (see ./shots.js): ?shot=editor shows the editor with a sample photo loaded,
-// ?shot=cover shows the exported cover alone, full frame.
+// Neon Coast editor v2: pick photos, choose a layout, grade and post size,
+// name the cast, crop and position each panel, edit the caption, export the
+// cover as a PNG — one size, or all three at once. Photos are read on this
+// machine only (FileReader / object URLs) and never uploaded. A `?shot=`
+// query sets up a fixed scene for a screenshot instead (see ./shots.js):
+// ?shot=editor shows the editor with a sample photo loaded, ?shot=cover
+// shows the exported cover alone, full frame.
 import { drawCover, layoutPanels, defaultPanels, topBiasPanels, LAYOUTS, GRADES, SIZES } from './cover.js';
 import { runShot } from './shots.js';
 
@@ -15,6 +16,13 @@ const zoomInput = document.getElementById('zoom');
 const photoInput = document.getElementById('photos');
 const onePhotoToggle = document.getElementById('onePhoto');
 const panelLabel = document.getElementById('panelLabel');
+const inkToggle = document.getElementById('ink');
+
+const DEFAULT_CAST = [
+  { name: 'MARLOWE', role: 'THE DRIVER' },
+  { name: 'VEGA', role: 'THE LOOKOUT' },
+  { name: 'CASS', role: 'THE FIXER' },
+];
 
 const state = {
   photos: [],
@@ -25,6 +33,8 @@ const state = {
   size: 'square',
   panels: defaultPanels('hero', 0),
   selectedPanel: 0,
+  cast: DEFAULT_CAST.map((c) => ({ ...c })),
+  ink: false,
 };
 
 function sizeOf() {
@@ -165,6 +175,37 @@ zoomInput.addEventListener('input', () => {
 onePhotoToggle.addEventListener('change', () => afterPhotosChanged(
   onePhotoToggle.checked ? 'One photo fills every panel.' : 'Each panel uses its own photo.',
 ));
+inkToggle.addEventListener('change', () => {
+  state.ink = inkToggle.checked;
+  status.textContent = state.ink ? 'Poster Ink on — flat print colours.' : 'Poster Ink off.';
+  redraw();
+});
+
+/** Cast editor: three name + role pairs, each shown as a tag on its panel. */
+function syncCastInputs() {
+  for (let i = 0; i < 3; i++) {
+    const n = document.getElementById(`castName${i}`);
+    const r = document.getElementById(`castRole${i}`);
+    if (n) n.value = (state.cast[i] && state.cast[i].name) || '';
+    if (r) r.value = (state.cast[i] && state.cast[i].role) || '';
+  }
+}
+for (let i = 0; i < 3; i++) {
+  const n = document.getElementById(`castName${i}`);
+  const r = document.getElementById(`castRole${i}`);
+  if (n) {
+    n.addEventListener('input', () => {
+      state.cast[i] = { ...(state.cast[i] || {}), name: n.value };
+      redraw();
+    });
+  }
+  if (r) {
+    r.addEventListener('input', () => {
+      state.cast[i] = { ...(state.cast[i] || {}), role: r.value };
+      redraw();
+    });
+  }
+}
 document.querySelectorAll('[data-layout]').forEach((b) => {
   b.addEventListener('click', () => setLayout(b.dataset.layout));
 });
@@ -240,6 +281,33 @@ export function exportCover() {
 }
 document.getElementById('export').addEventListener('click', exportCover);
 
+/** Renders the same cover in all three post sizes and downloads each PNG,
+ * so one click hands over the square, portrait and wide versions together. */
+export async function exportAllSizes() {
+  const names = [];
+  for (const key of Object.keys(SIZES)) {
+    const { w, h } = SIZES[key];
+    const off = document.createElement('canvas');
+    off.width = w;
+    off.height = h;
+    drawCover(off, { ...state, size: key });
+    // eslint-disable-next-line no-await-in-loop
+    const name = await new Promise((resolve) => {
+      off.toBlob((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `neon-coast-all-${w}x${h}.png`;
+        a.click();
+        resolve(a.download);
+      }, 'image/png');
+    });
+    names.push(name);
+  }
+  status.textContent = `Saved ${names.length} sizes: ${names.join(', ')}`;
+  return names;
+}
+document.getElementById('exportAll').addEventListener('click', exportAllSizes);
+
 // Build the layout / grade / size buttons from the engine's own tables.
 function buildButtons() {
   const layoutRow = document.getElementById('layoutRow');
@@ -273,6 +341,7 @@ function buildButtons() {
 
 buildButtons();
 syncPanelControls();
+syncCastInputs();
 
 const shot = new URLSearchParams(location.search).get('shot');
 if (shot) {
@@ -282,9 +351,14 @@ if (shot) {
     setState(next) {
       Object.assign(state, next);
       state.panels = next.panels || defaultPanels(state.layout, state.photos.length);
+      state.cast = (next.cast && next.cast.length ? next.cast : DEFAULT_CAST)
+        .map((c) => ({ ...c }));
+      state.ink = Boolean(next.ink);
       topBiasPanels(state);
       titleInput.value = state.title;
       subtitleInput.value = state.subtitle;
+      if (inkToggle) inkToggle.checked = state.ink;
+      syncCastInputs();
       syncPanelControls();
       redraw();
     },

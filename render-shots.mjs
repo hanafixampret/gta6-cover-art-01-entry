@@ -152,14 +152,34 @@ async function main() {
       if (!size || size.w !== w || size.h !== h) errors.push(`export size mismatch ${name}`);
     }
     const switched = await evalJs(`(() => {
-      document.querySelector('[data-layout="quad"]').click();
-      document.querySelector('[data-grade="neon"]').click();
+      document.querySelector('[data-layout="slanted"]').click();
+      document.querySelector('[data-grade="heat"]').click();
+      document.getElementById('ink').click();
       document.querySelector('[data-size="square"]').click();
-      return document.querySelector('[data-layout="quad"]').classList.contains('active')
-        && document.querySelector('[data-grade="neon"]').classList.contains('active');
+      return document.querySelector('[data-layout="slanted"]').classList.contains('active')
+        && document.querySelector('[data-grade="heat"]').classList.contains('active')
+        && document.getElementById('ink').checked;
     })()`);
-    console.log('play-test layout/grade switch:', switched ? 'OK' : 'FAIL');
-    if (!switched) errors.push('layout/grade switch failed');
+    console.log('play-test layout/grade/ink switch:', switched ? 'OK' : 'FAIL');
+    if (!switched) errors.push('layout/grade/ink switch failed');
+    const castEdited = await evalJs(`(() => {
+      const n = document.getElementById('castName0');
+      n.value = 'RICO';
+      n.dispatchEvent(new Event('input', { bubbles: true }));
+      return document.getElementById('castName0').value;
+    })()`);
+    console.log('play-test cast edited to:', castEdited);
+    if (castEdited !== 'RICO') errors.push('cast edit failed');
+    await evalJs(`document.getElementById('exportAll').click()`);
+    await sleep(3000);
+    for (const [w, h] of [[1080, 1080], [1080, 1350], [1920, 1080]]) {
+      const name = `neon-coast-all-${w}x${h}.png`;
+      const path = join(playDir, name);
+      if (!existsSync(path)) throw new Error(`export-all missing: ${name}`);
+      const size = pngSize(readFileSync(path));
+      console.log(`play-test export-all ${name}: ${size?.w}x${size?.h} ${size?.w === w && size?.h === h ? 'OK' : 'MISMATCH'}`);
+      if (!size || size.w !== w || size.h !== h) errors.push(`export-all size mismatch ${name}`);
+    }
 
     console.log(`console errors: ${consoleErrors.length}`, consoleErrors);
     console.log(`failed network requests: ${failedRequests.length}`, failedRequests);
