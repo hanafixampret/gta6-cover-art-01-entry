@@ -3,99 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Neon Coast — turn a photo and a caption into GTA-style poster cover art, offline in your browser.">
-<title>Neon Coast — GTA-style Cover Maker</title>
+<title>Neon Vice — GTA 6 Cover Studio</title>
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<main class="app">
-  <section class="controls" aria-label="Cover controls">
-    <h1>Neon Coast</h1>
-    <p class="tagline">Turn a photo and a caption into poster-style cover art. 100% offline — your photos never leave this machine.</p>
-
-    <div class="group">
-      <span class="group-label">1 · Photos</span>
-      <label class="file-label">Choose up to 3 photos
-        <input id="photos" type="file" accept="image/*" multiple>
-      </label>
-      <div class="row">
-        <button id="useSamples" type="button">Use sample photos</button>
-        <button id="clearPhotos" type="button" class="ghost">Clear</button>
-      </div>
-      <label class="check"><input id="onePhoto" type="checkbox"> One photo fills every panel</label>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">NV</span>
+    <div>
+      <h1>NEON VICE</h1>
+      <p>Cover Studio · GTA VI key art from your photos</p>
     </div>
+  </div>
+  <div class="top-actions">
+    <button id="autofill-btn" type="button" class="btn ghost">↻ Auto-fill</button>
+    <button id="export-btn" type="button" class="btn primary">↓ Export PNG</button>
+  </div>
+</header>
 
-    <div class="group">
-      <span class="group-label">2 · Layout</span>
-      <div class="row wrap" id="layoutRow"></div>
+<main class="studio">
+  <aside class="panel library-panel">
+    <h2>Photos</h2>
+    <p class="hint">Click a photo to put it in the selected panel. Drag the cover to reframe; scroll to zoom.</p>
+    <div id="library" class="library"></div>
+    <button id="add-photos" type="button" class="btn ghost wide">+ Add your photos</button>
+    <input id="file-input" type="file" accept="image/*" multiple hidden>
+    <p class="hint small">Photos never leave your device. Works fully offline.</p>
+  </aside>
+
+  <section class="stage-panel">
+    <div id="stage-wrap" class="stage-wrap">
+      <canvas id="stage"></canvas>
     </div>
-
-    <div class="group">
-      <span class="group-label">3 · Colour grade</span>
-      <div class="row wrap" id="gradeRow"></div>
-      <label class="check"><input id="ink" type="checkbox"> Poster Ink — flat print colours</label>
-    </div>
-
-    <div class="group">
-      <span class="group-label">4 · Caption</span>
-      <label>Title <input id="title" type="text" maxlength="32" value="Neon Shore"></label>
-      <label>Subtitle <input id="subtitle" type="text" maxlength="48" value="one last ride down the coast"></label>
-    </div>
-
-    <div class="group">
-      <span class="group-label">5 · Cast — role tags on the panels</span>
-      <div class="cast-row">
-        <input id="castName0" type="text" maxlength="16" value="MARLOWE" aria-label="Cast 1 name">
-        <input id="castRole0" type="text" maxlength="16" value="THE DRIVER" aria-label="Cast 1 role">
-      </div>
-      <div class="cast-row">
-        <input id="castName1" type="text" maxlength="16" value="VEGA" aria-label="Cast 2 name">
-        <input id="castRole1" type="text" maxlength="16" value="THE LOOKOUT" aria-label="Cast 2 role">
-      </div>
-      <div class="cast-row">
-        <input id="castName2" type="text" maxlength="16" value="CASS" aria-label="Cast 3 name">
-        <input id="castRole2" type="text" maxlength="16" value="THE FIXER" aria-label="Cast 3 role">
-      </div>
-      <p class="hint">Each pair is drawn as a tag on its panel, and the names feed the billing block at the foot of the cover.</p>
-    </div>
-
-    <div class="group">
-      <span class="group-label">6 · Poster extras</span>
-      <label class="check"><input id="seal" type="checkbox" checked> Vice City seal — stamped on the cover</label>
-      <label class="check"><input id="reviews" type="checkbox" checked> Review strip — stars + critic quote</label>
-      <label>Quote <input id="review" type="text" maxlength="64" value="'A neon-soaked masterpiece' — VICE GAMER"></label>
-      <label class="check"><input id="glow" type="checkbox" checked> Sky glow — light behind the title</label>
-      <div class="row">
-        <button id="autoFill" type="button" class="mini">Auto-fill panels</button>
-      </div>
-      <p class="hint">Auto-fill deals your photos across the panels so no two neighbours repeat.</p>
-    </div>
-
-    <div class="group">
-      <span class="group-label">7 · Crop the selected panel</span>
-      <p id="panelLabel" class="hint" role="status">Panel 1 of 4</p>
-      <div class="row">
-        <button id="prevPanel" type="button" class="ghost">← Prev panel</button>
-        <button id="nextPanel" type="button" class="ghost">Next panel →</button>
-      </div>
-      <label>Zoom <input id="zoom" type="range" min="1" max="2.5" step="0.05" value="1"></label>
-      <p class="hint">Drag the photo inside a panel to move it. Click a panel to select it.</p>
-    </div>
-
-    <div class="group">
-      <span class="group-label">8 · Post size</span>
-      <div class="row wrap" id="sizeRow"></div>
-    </div>
-
-    <button id="export" type="button" class="export">Export PNG</button>
-    <button id="exportAll" type="button" class="export-all">Export all 3 sizes</button>
-    <p id="status" role="status"></p>
-    <p class="fine">Original art and lettering, made for this app. Not affiliated with Rockstar Games.</p>
+    <p class="hint center">Click a panel to select it · drag to move the photo inside · scroll to zoom</p>
   </section>
-  <section class="stage" aria-label="Cover preview">
-    <canvas id="preview" width="1080" height="1080" aria-label="The cover preview"></canvas>
-  </section>
+
+  <aside class="panel controls-panel">
+    <h2>Layout</h2>
+    <div id="layout-row" class="btn-row"></div>
+
+    <h2>Grade</h2>
+    <div id="grade-row" class="btn-row"></div>
+
+    <h2>Export size</h2>
+    <div id="size-row" class="btn-row"></div>
+
+    <h2>Lettering</h2>
+    <label class="field">Title
+      <input id="title-input" type="text" value="VICE CITY" maxlength="24">
+    </label>
+    <label class="field">Tagline
+      <input id="tagline-input" type="text" value="GRAND THEFT AUTO VI" maxlength="32">
+    </label>
+    <label class="field">Review quote
+      <input id="quote-input" type="text" value="A VICE CITY MASTERPIECE" maxlength="64">
+    </label>
+    <label class="field">Review source
+      <input id="source-input" type="text" value="VICE GAMING" maxlength="24">
+    </label>
+    <div class="field">Stars
+      <div id="stars-row" class="star-row"></div>
+    </div>
+
+    <h2>Selected panel</h2>
+    <p id="selected-label" class="hint">Panel 1</p>
+    <label class="field">Role tag
+      <input id="tag-input" type="text" value="" maxlength="12">
+    </label>
+    <label class="field">Zoom
+      <input id="zoom" type="range" min="100" max="300" value="100">
+    </label>
+    <button id="detect-btn" type="button" class="btn ghost wide">◎ Detect focus (face-aware)</button>
+  </aside>
 </main>
+
+<footer class="foot">
+  <span>NEON VICE COVER STUDIO — a fan-made tool. Photos stay on your machine.</span>
+</footer>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
